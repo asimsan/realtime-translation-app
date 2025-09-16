@@ -3,7 +3,7 @@ import { logger } from '@/utils/logger';
 
 // Simple API key authentication middleware
 // In production, you might want to use JWT tokens, OAuth, or other auth methods
-export const authenticateRequest = (req: Request, res: Response, next: NextFunction) => {
+export const authenticateRequest = (req: Request, res: Response, next: NextFunction): void => {
   // For now, we'll use a simple session-based approach
   // You can enhance this with proper authentication as needed
   
@@ -18,7 +18,7 @@ export const authenticateRequest = (req: Request, res: Response, next: NextFunct
       userAgent 
     });
     
-    return res.status(400).json({
+    res.status(400).json({
       success: false,
       error: {
         code: 'MISSING_SESSION_ID',
@@ -27,6 +27,7 @@ export const authenticateRequest = (req: Request, res: Response, next: NextFunct
       timestamp: new Date().toISOString(),
       requestId: generateRequestId(),
     });
+    return;
   }
 
   // Log the request

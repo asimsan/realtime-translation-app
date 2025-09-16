@@ -54,10 +54,11 @@ export class OpenAIService {
       };
 
     } catch (error) {
-      logger.error('Translation failed', { error: error.message });
+      const errorMessage = error instanceof Error ? error.message : 'Translation failed';
+      logger.error('Translation failed', { error: errorMessage });
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Translation failed',
+        error: errorMessage,
         sessionId: request.sessionId,
       };
     }
@@ -100,7 +101,7 @@ export class OpenAIService {
         throw new Error(`Failed to get ephemeral token: ${response.status} ${errorText}`);
       }
 
-      const data = await response.json();
+      const data = await response.json() as { value?: string };
       const clientSecret = data.value;
 
       if (!clientSecret) {
@@ -115,7 +116,8 @@ export class OpenAIService {
       return { clientSecret, expiresAt };
 
     } catch (error) {
-      logger.error('Failed to get ephemeral token', { sessionId, error: error.message });
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('Failed to get ephemeral token', { sessionId, error: errorMessage });
       throw error;
     }
   }
@@ -148,7 +150,8 @@ export class OpenAIService {
           hasRealtimeAccess: true,
         };
       } catch (realtimeError) {
-        logger.warn('Realtime API access not available', { error: realtimeError.message });
+        const realtimeErrorMessage = realtimeError instanceof Error ? realtimeError.message : 'Unknown error';
+        logger.warn('Realtime API access not available', { error: realtimeErrorMessage });
         
         return {
           isValid: true,
@@ -158,18 +161,19 @@ export class OpenAIService {
       }
 
     } catch (error) {
-      logger.error('API key validation failed', { error: error.message });
+      const errorMessage = error instanceof Error ? error.message : 'Validation failed';
+      logger.error('API key validation failed', { error: errorMessage });
       
       return {
         isValid: false,
         hasRealtimeAccess: false,
-        error: error instanceof Error ? error.message : 'Validation failed',
+        error: errorMessage,
       };
     }
   }
 
   private buildSystemPrompt(sourceLanguage: string, targetLanguage: string): string {
-    const languageMap = {
+    const languageMap: Record<string, string> = {
       'en': 'English',
       'ne': 'Nepali (नेपाली)',
       'auto': 'automatically detected language',

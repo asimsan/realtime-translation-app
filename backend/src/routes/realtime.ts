@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import { body, validationResult } from 'express-validator';
 import { OpenAIService } from '@/services/OpenAIService';
 import { logger } from '@/utils/logger';
@@ -8,12 +8,12 @@ const router = Router();
 const openaiService = new OpenAIService();
 
 // POST /api/realtime/token - Get ephemeral client secret for WebSocket connection
-router.post('/token', async (req, res) => {
+router.post('/token', async (req: Request, res: Response): Promise<void> => {
   try {
     const sessionId = req.sessionId;
     
     if (!sessionId) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         error: {
           code: 'MISSING_SESSION_ID',
@@ -22,6 +22,7 @@ router.post('/token', async (req, res) => {
         timestamp: new Date().toISOString(),
         requestId: req.requestId,
       } as APIResponse);
+      return;
     }
 
     logger.info('Requesting ephemeral token', {
@@ -45,8 +46,9 @@ router.post('/token', async (req, res) => {
     } as APIResponse);
 
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('Failed to get ephemeral token', {
-      error: error.message,
+      error: errorMessage,
       sessionId: req.sessionId,
       requestId: req.requestId,
     });
@@ -55,13 +57,13 @@ router.post('/token', async (req, res) => {
     let statusCode = 500;
     let errorCode = 'TOKEN_GENERATION_FAILED';
     
-    if (error.message.includes('403')) {
+    if (errorMessage.includes('403')) {
       statusCode = 403;
       errorCode = 'REALTIME_ACCESS_DENIED';
-    } else if (error.message.includes('401')) {
+    } else if (errorMessage.includes('401')) {
       statusCode = 401;
       errorCode = 'INVALID_API_KEY';
-    } else if (error.message.includes('429')) {
+    } else if (errorMessage.includes('429')) {
       statusCode = 429;
       errorCode = 'RATE_LIMIT_EXCEEDED';
     }
@@ -70,7 +72,7 @@ router.post('/token', async (req, res) => {
       success: false,
       error: {
         code: errorCode,
-        message: error.message,
+        message: errorMessage,
       },
       timestamp: new Date().toISOString(),
       requestId: req.requestId,
@@ -79,7 +81,7 @@ router.post('/token', async (req, res) => {
 });
 
 // GET /api/realtime/status - Check realtime API status
-router.get('/status', async (req, res) => {
+router.get('/status', async (req: Request, res: Response): Promise<void> => {
   try {
     logger.info('Checking realtime status', { requestId: req.requestId });
 
@@ -98,8 +100,9 @@ router.get('/status', async (req, res) => {
     } as APIResponse);
 
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('Realtime status check failed', {
-      error: error.message,
+      error: errorMessage,
       requestId: req.requestId,
     });
 

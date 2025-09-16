@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import { body, validationResult } from 'express-validator';
 import { OpenAIService } from '@/services/OpenAIService';
 import { logger } from '@/utils/logger';
@@ -31,12 +31,12 @@ const validateTranslationRequest = [
 ];
 
 // POST /api/translation/text - Translate text
-router.post('/text', validateTranslationRequest, async (req, res) => {
+router.post('/text', validateTranslationRequest, async (req: Request, res: Response): Promise<void> => {
   try {
     // Check validation errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         error: {
           code: 'VALIDATION_ERROR',
@@ -46,6 +46,7 @@ router.post('/text', validateTranslationRequest, async (req, res) => {
         timestamp: new Date().toISOString(),
         requestId: req.requestId,
       } as APIResponse);
+      return;
     }
 
     const translationRequest: TranslationRequest = {
@@ -56,7 +57,7 @@ router.post('/text', validateTranslationRequest, async (req, res) => {
     };
 
     if (!translationRequest.text) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         error: {
           code: 'MISSING_TEXT',
@@ -65,6 +66,7 @@ router.post('/text', validateTranslationRequest, async (req, res) => {
         timestamp: new Date().toISOString(),
         requestId: req.requestId,
       } as APIResponse);
+      return;
     }
 
     logger.info('Processing text translation', {
@@ -78,7 +80,7 @@ router.post('/text', validateTranslationRequest, async (req, res) => {
     const result = await openaiService.translateText(translationRequest);
 
     if (!result.success) {
-      return res.status(500).json({
+      res.status(500).json({
         success: false,
         error: {
           code: 'TRANSLATION_FAILED',
@@ -87,6 +89,7 @@ router.post('/text', validateTranslationRequest, async (req, res) => {
         timestamp: new Date().toISOString(),
         requestId: req.requestId,
       } as APIResponse);
+      return;
     }
 
     res.json({
@@ -97,8 +100,9 @@ router.post('/text', validateTranslationRequest, async (req, res) => {
     } as APIResponse<TranslationResponse>);
 
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('Translation endpoint error', {
-      error: error.message,
+      error: errorMessage,
       sessionId: req.sessionId,
       requestId: req.requestId,
     });
@@ -116,7 +120,7 @@ router.post('/text', validateTranslationRequest, async (req, res) => {
 });
 
 // GET /api/translation/health - Health check
-router.get('/health', async (req, res) => {
+router.get('/health', async (req: Request, res: Response): Promise<void> => {
   try {
     logger.info('Health check requested', { requestId: req.requestId });
 
@@ -139,8 +143,9 @@ router.get('/health', async (req, res) => {
     } as APIResponse);
 
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('Health check failed', {
-      error: error.message,
+      error: errorMessage,
       requestId: req.requestId,
     });
 
