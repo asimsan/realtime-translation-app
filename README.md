@@ -1,16 +1,30 @@
-# Real-Time English to Nepali Translation App
+# 🗣️ Real-Time English ⇄ Nepali Translation App
 
-A real-time speech translation mobile app that allows users to speak in English and have the speech translated and played in **Nepali** through AirPods. The app uses **OpenAI's GPT Realtime API** for speech recognition and translation, optimized for low-latency, hands-free operation.
+[![React Native](https://img.shields.io/badge/React%20Native-0.81.4-blue.svg)](https://reactnative.dev/)
+[![Expo](https://img.shields.io/badge/Expo-~54.0.7-black.svg)](https://expo.dev/)
+[![OpenAI](https://img.shields.io/badge/OpenAI-Realtime%20API-green.svg)](https://platform.openai.com/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-~5.9.2-blue.svg)](https://www.typescriptlang.org/)
 
-## 🚀 Features
+A real-time speech translation mobile app that enables **bidirectional English ⇄ Nepali translation** through AirPods. The app uses **OpenAI's GPT Realtime API** for speech recognition and translation, optimized for low-latency, hands-free operation with echo cancellation.
 
-- **Real-time translation:** Low-latency streaming (<700ms) from English → Nepali
-- **AirPods integration:** Optimized for audio capture and playback using AirPods
-- **Speech Recognition:** Powered by OpenAI Whisper for accurate transcription
-- **Natural Translation:** Uses GPT-4 for contextually accurate translations
-- **Text-to-Speech:** High-quality Nepali voice synthesis
-- **Beautiful UI:** Modern, gradient-based interface with visual feedback
-- **Echo cancellation:** English speech is masked; only Nepali is heard
+## 📱 Demo
+
+**English Input:** "Hello, how are you today?"  
+**Nepali Output:** "नमस्ते, आज तपाईं कस्तो हुनुहुन्छ?" 🔊
+
+**Nepali Input:** "म ठिक छु, धन्यवाद।"  
+**English Output:** "I am fine, thank you." 🔊
+
+## ✨ Features
+
+- **🔄 Bidirectional Translation:** English ⇄ Nepali with auto-detection
+- **⚡ Real-time Processing:** Low-latency streaming (<700ms) with WebSocket
+- **🎧 AirPods Optimization:** Enhanced audio capture and playback
+- **🗣️ Natural Speech:** OpenAI Realtime API for seamless voice interaction
+- **🎯 Smart Detection:** Automatic language detection and appropriate translation
+- **🎨 Beautiful UI:** Modern gradient interface with visual feedback animations
+- **🔇 Echo Cancellation:** Clean audio without feedback loops
+- **📱 Cross-Platform:** Works on iOS, Android, and Web
 
 ## 🏗️ Architecture
 
