@@ -1,0 +1,24 @@
+{
+  "openai": {
+    "apiKey": "your_openai_api_key_here",
+    "model": "gpt-4o-realtime-preview-2024-10-01",
+    "voice": "alloy"
+  },
+  "performance": {
+    "targetLatency": 700,
+    "maxAudioBufferSize": 1024,
+    "audioSampleRate": 16000,
+    "audioChannels": 1
+  },
+  "features": {
+    "echoCancellation": true,
+    "noiseSuppression": true,
+    "performanceLogging": true,
+    "detailedLogging": false
+  },
+  "languages": {
+    "source": "en",
+    "target": "ne",
+    "fallbackTTS": "hi-IN"
+  }
+}
