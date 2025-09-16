@@ -7,7 +7,72 @@ export const validateOpenAIApiKey = async (apiKey: string): Promise<{
 }> => {
   try {
     console.log('🔍 Validating API key via Realtime client secret...');
+    console.log(`🔑 API Key format: ${apiKey.substring(0, 7)}...${apiKey.substring(apiKey.length - 4)}`);
+    console.log(`🔑 API Key length: ${apiKey.length} characters`);
+    
+    // Basic API key format validation
+    if (!apiKey || typeof apiKey !== 'string') {
+      return {
+        isValid: false,
+        hasRealtimeAccess: false,
+        error: 'API key is required and must be a string',
+      };
+    }
+    
+    const trimmedKey = apiKey.trim();
+    if (trimmedKey.length === 0) {
+      return {
+        isValid: false,
+        hasRealtimeAccess: false,
+        error: 'API key cannot be empty',
+      };
+    }
+    
+    if (!trimmedKey.startsWith('sk-')) {
+      return {
+        isValid: false,
+        hasRealtimeAccess: false,
+        error: 'Invalid API key format. OpenAI API keys must start with "sk-"',
+      };
+    }
+    
+    // Try basic models endpoint first (more lenient)
+    console.log('🔍 First attempting basic models validation...');
+    try {
+      const modelsResponse = await fetch('https://api.openai.com/v1/models', {
+        headers: {
+          'Authorization': `Bearer ${trimmedKey}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (modelsResponse.ok) {
+        console.log('✅ Basic API access confirmed');
+        // API key works for basic endpoints, now test Realtime
+      } else {
+        const errorText = await modelsResponse.text();
+        console.error('❌ Basic API validation failed:', modelsResponse.status, errorText);
+        
+        if (modelsResponse.status === 401) {
+          return {
+            isValid: false,
+            hasRealtimeAccess: false,
+            error: 'API key is invalid or revoked. Please check your key at platform.openai.com',
+          };
+        }
+        
+        if (modelsResponse.status === 429) {
+          console.warn('⚠️ Rate limited on models endpoint, proceeding to Realtime test...');
+        } else {
+          console.warn(`⚠️ Models endpoint returned ${modelsResponse.status}, proceeding to Realtime test...`);
+        }
+      }
+    } catch (basicError) {
+      console.warn('⚠️ Basic models test failed, proceeding to Realtime test:', basicError);
+    }
 
+    // Now test Realtime API access
+    console.log('🔍 Testing Realtime API access...');
     const sessionConfig = {
       session: {
         type: 'realtime',
@@ -28,7 +93,7 @@ export const validateOpenAIApiKey = async (apiKey: string): Promise<{
     const response = await fetch('https://api.openai.com/v1/realtime/client_secrets', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
+        'Authorization': `Bearer ${trimmedKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(sessionConfig),

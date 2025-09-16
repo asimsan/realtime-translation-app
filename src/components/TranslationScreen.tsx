@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { TranslationService } from '../services/TranslationService';
 import { TranslationState, OpenAIConfig } from '../types';
 import { validateOpenAIApiKey, testRealtimeConnection } from '../utils/apiKeyValidator';
+import { diagnoseAPIKey, printDiagnostics } from '../utils/apiKeyDebugger';
 
 const { width, height } = Dimensions.get('window');
 
@@ -55,16 +56,39 @@ export const TranslationScreen: React.FC<Props> = ({ apiKey }) => {
     try {
       console.log('🚀 Initializing translation service...');
       
-      // Step 1: Validate API key
-      console.log('🔍 Step 1: Validating API key...');
-      const validation = await validateOpenAIApiKey(apiKey);
+      // Step 1: Comprehensive API key diagnosis
+      console.log('🔍 Step 1: Running comprehensive API key diagnostics...');
+      const diagnostics = await diagnoseAPIKey(apiKey);
+      printDiagnostics(diagnostics);
       
-      if (!validation.isValid) {
-        throw new Error(`Invalid API key: ${validation.error}`);
+      if (!diagnostics.isValidFormat) {
+        throw new Error(`Invalid API key format: ${diagnostics.errors.join(', ')}`);
       }
       
-      if (!validation.hasRealtimeAccess) {
-        console.warn('⚠️  Realtime model not found in available models - proceeding anyway');
+      if (!diagnostics.hasBasicAccess) {
+        const errorMsg = diagnostics.errors.length > 0 
+          ? diagnostics.errors.join(', ')
+          : 'API key lacks basic access';
+        const recommendations = diagnostics.recommendations.length > 0
+          ? `\n\nRecommendations:\n${diagnostics.recommendations.map(r => `• ${r}`).join('\n')}`
+          : '';
+        throw new Error(`${errorMsg}${recommendations}`);
+      }
+      
+      if (!diagnostics.hasRealtimeAccess) {
+        const realtimeError = 'Realtime API access not available for this key';
+        const recommendations = diagnostics.recommendations.length > 0
+          ? `\n\nRecommendations:\n${diagnostics.recommendations.map(r => `• ${r}`).join('\n')}`
+          : '';
+        console.warn('⚠️ Realtime access not detected');
+        Alert.alert(
+          'Realtime Access Required', 
+          `${realtimeError}${recommendations}`,
+          [
+            { text: 'Continue Anyway', style: 'default' },
+            { text: 'Cancel', style: 'cancel', onPress: () => { return; } }
+          ]
+        );
       }
       
       // Step 2: Test WebSocket connection
