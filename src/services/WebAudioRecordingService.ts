@@ -15,10 +15,34 @@ export class WebAudioRecordingService {
 
   async requestPermissions(): Promise<AudioPermissions> {
     try {
-      console.log('🎤 Requesting microphone permissions...');
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      console.log('✅ Microphone permission granted');
+      console.log('🎤 Requesting microphone permissions with echo cancellation...');
+      
+      // Request microphone with echo cancellation and noise suppression
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          sampleRate: 24000, // Match OpenAI's expected rate
+          channelCount: 1,    // Mono
+        }
+      });
+      
+      console.log('✅ Microphone permission granted with enhanced audio processing');
       console.log('🎵 Audio stream tracks:', stream.getAudioTracks().length);
+      
+      // Log the actual audio settings
+      const audioTrack = stream.getAudioTracks()[0];
+      if (audioTrack) {
+        const settings = audioTrack.getSettings();
+        console.log('🔧 Audio settings:', {
+          sampleRate: settings.sampleRate,
+          channelCount: settings.channelCount,
+          echoCancellation: settings.echoCancellation,
+          noiseSuppression: settings.noiseSuppression,
+          autoGainControl: settings.autoGainControl
+        });
+      }
       
       // Stop the stream since we're just testing permissions
       stream.getTracks().forEach(track => track.stop());
@@ -47,13 +71,14 @@ export class WebAudioRecordingService {
 
       console.log('🎤 Starting audio recording...');
       
-      // Get microphone access
+      // Get microphone access with enhanced audio processing
       this.stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           sampleRate: 24000,
           channelCount: 1,
           echoCancellation: true,
           noiseSuppression: true,
+          autoGainControl: true,
         },
       });
       

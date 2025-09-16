@@ -50,18 +50,13 @@ export class OpenAIRealtimeService {
       };
 
       this.ws.onerror = (error) => {
-        console.error('❌ WebSocket error details:', error);
-        console.error('📡 WebSocket state during error:', this.ws?.readyState);
-        this.onError(new Error('WebSocket connection error: ' + JSON.stringify(error)));
+        console.error('❌ WebSocket error:', error);
+        this.onError(new Error('WebSocket connection error'));
       };
 
       this.ws.onclose = (event) => {
-        console.log(`🔌 Disconnected from OpenAI Realtime API`);
-        console.log(`📊 Close code: ${event.code}`);
-        console.log(`📝 Close reason: ${event.reason}`);
-        console.log(`🔄 Was clean: ${event.wasClean}`);
+        console.log('🔌 WebSocket closed:', event.code, event.reason);
         
-        // Log common close codes
         const closeReasons: Record<number, string> = {
           1000: 'Normal closure',
           1001: 'Going away',
@@ -86,8 +81,6 @@ export class OpenAIRealtimeService {
     }
   }
 
-  // Removed getEphemeralKey method - now handled by backend
-
   private initializeSession(): void {
     if (!this.ws) {
       console.error('❌ Cannot initialize session: WebSocket is null');
@@ -99,25 +92,75 @@ export class OpenAIRealtimeService {
       return;
     }
 
-    console.log('✅ Session already configured via ephemeral key endpoint');
-    console.log('🔧 WebSocket connection ready for audio streaming');
-    return; // Skip sending session config since it's already configured
-
-    // Configure the session according to the new Realtime API documentation
+    console.log('🔧 Initializing session for real-time translation...');
+    
+    // Configure session for translation with proper audio format
     const sessionConfig = {
       type: 'session.update',
       session: {
         type: 'realtime',
-        model: 'gpt-realtime',
-        output_modalities: ['audio', 'text'],
+        model: 'gpt-realtime-2025-08-25',
+        output_modalities: ['audio'],
+        instructions: `You are a word-for-word TRANSLATION MACHINE. You NEVER engage in conversation.
+
+ABSOLUTE RULES:
+1. NEPALI input → Translate to ENGLISH exactly
+2. GERMAN input → Translate to NEPALI exactly  
+3. ENGLISH input → Translate to NEPALI exactly
+
+CRITICAL: You are NOT a chatbot. You are a translation machine.
+
+BEHAVIOR:
+- Translate ONLY the exact words given
+- NEVER add your own words
+- NEVER respond to the meaning
+- NEVER ask questions back
+- NEVER engage with the content
+- Act like Google Translate - just convert words
+
+EXAMPLES:
+Input: "I would like to say you something" → Output: "म तपाईंलाई केहि भन्न चाहन्छु"
+(NOT "म तपाईंलाई केहि भन्न चाहन्छु। तपाईं के भन्न चाहनुहुन्छ?")
+
+Input: "What do you want?" → Output: "तपाईं के चाहनुहुन्छ?"
+(NOT "तपाईं के चाहनुहुन्छ? म तपाईंलाई मद्दत गर्न सक्छु।")
+
+Input: "Can you help me?" → Output: "के तपाईं मलाई मद्दत गर्न सक्नुहुन्छ?"
+(NOT answering the question - just translate it)
+
+Input: "Kannst du mir helfen?" → Output: "के तपाईं मलाई मद्दत गर्न सक्नुहुन्छ?"
+
+WRONG BEHAVIOR (NEVER DO THIS):
+- Adding follow-up questions
+- Responding to requests
+- Engaging with the meaning
+- Being helpful beyond translation
+
+RIGHT BEHAVIOR (ALWAYS DO THIS):
+- Translate the words exactly
+- Stop after translation
+- Say nothing extra
+
+You are a machine. Not a person. Not a helper. Just a translator.`,
+        tools: [],
+        tool_choice: 'auto',
+        max_output_tokens: 'inf',
         audio: {
           input: {
             format: {
               type: 'audio/pcm',
               rate: 24000
             },
+            transcription: {
+              model: "whisper-1"
+            },
             turn_detection: {
-              type: 'server_vad'
+              type: 'server_vad',
+              threshold: 0.5,
+              prefix_padding_ms: 300,
+              silence_duration_ms: 800,
+              create_response: true,
+              interrupt_response: true
             }
           },
           output: {
@@ -125,44 +168,16 @@ export class OpenAIRealtimeService {
               type: 'audio/pcm',
               rate: 24000
             },
-            voice: 'alloy'
+            voice: 'alloy',
+            speed: 1.0
           }
-        },
-        instructions: `# Translation Agent
-
-You are an expert real-time translator specializing in English and Nepali languages. You have deep cultural understanding of both languages and can capture nuances, emotions, and context.
-
-## Core Task
-Automatically detect whether the user is speaking in English or Nepali, then provide an accurate, natural translation to the other language. Maintain the original speaker's tone, emotion, and intent.
-
-## Translation Rules
-- If input is English: translate to Nepali (नेपाली)
-- If input is Nepali: translate to English
-- For mixed-language input: translate each part appropriately
-- Preserve emotional tone and cultural context
-- Maintain conversational flow across multiple exchanges
-
-## Communication Style
-- Natural and conversational
-- Match the original speaker's formality level (casual vs formal)
-- Preserve enthusiasm and energy levels
-- Use appropriate cultural references for the target language
-- Include natural speech patterns when appropriate
-
-## Special Instructions
-- If uncertain about cultural references, provide contextually appropriate equivalents
-- For names and proper nouns, repeat them clearly for confirmation
-- Maintain conversation context across multiple turns
-- Respond promptly to maintain natural conversation flow`,
-        tools: [],
-        tool_choice: 'none',
-        temperature: 0.3
+        }
       }
     };
 
-    console.log('📤 Sending session config:', JSON.stringify(sessionConfig, null, 2));
-    this.ws?.send(JSON.stringify(sessionConfig));
-    console.log('✅ Session config sent successfully');
+    console.log('📡 Sending session configuration:', sessionConfig);
+    this.ws.send(JSON.stringify(sessionConfig));
+    console.log('✅ Session configured for real-time translation');
   }
 
   sendAudioData(audioData: ArrayBuffer): void {
@@ -233,44 +248,13 @@ Automatically detect whether the user is speaking in English or Nepali, then pro
     };
 
     this.ws.send(JSON.stringify(message));
-
-    // Create response with proper output_modalities structure
+    
+    // Request response
     const createResponse = {
       type: 'response.create',
       response: {
-        output_modalities: ['text', 'audio'],
-        instructions: 'Automatically detect the input language and translate appropriately. If English, translate to Nepali. If Nepali, translate to English. Provide both text and audio output.'
-      }
-    };
-
-    this.ws.send(JSON.stringify(createResponse));
-  }
-
-  requestLanguageDetection(text: string): void {
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
-
-    const message = {
-      type: 'conversation.item.create',
-      item: {
-        type: 'message',
-        role: 'user',
-        content: [
-          {
-            type: 'input_text',
-            text: `Detect language and translate: "${text}"`
-          }
-        ]
-      }
-    };
-
-    this.ws.send(JSON.stringify(message));
-
-    // Create response for language detection
-    const createResponse = {
-      type: 'response.create',
-      response: {
-        output_modalities: ['text', 'audio'],
-        instructions: 'First identify the language of the input text, then translate it appropriately. Format your response as: "[DETECTED: language] Translation: [translated text]". If English, translate to Nepali. If Nepali, translate to English.'
+        modalities: ['text', 'audio'],
+        instructions: 'Provide only the translation without explanation.'
       }
     };
 

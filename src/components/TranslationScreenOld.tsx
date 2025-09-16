@@ -8,8 +8,11 @@ import {
   Alert,
   Animated,
   Dimensions,
+  StatusBar,
+  Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { TranslationService } from '../services/TranslationService';
 import { TranslationState, OpenAIConfig } from '../types';
@@ -33,9 +36,14 @@ export const TranslationScreen: React.FC<Props> = () => {
   const translationService = useRef<TranslationService | null>(null);
   const pulseAnimation = useRef(new Animated.Value(1)).current;
   const waveAnimation = useRef(new Animated.Value(0)).current;
+  const fadeInAnimation = useRef(new Animated.Value(0)).current;
+  const slideUpAnimation = useRef(new Animated.Value(50)).current;
+  const scaleAnimation = useRef(new Animated.Value(0.95)).current;
+  const rotateAnimation = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     initializeService();
+    startInitialAnimations();
     return () => {
       translationService.current?.stop();
     };
@@ -43,12 +51,19 @@ export const TranslationScreen: React.FC<Props> = () => {
 
   useEffect(() => {
     if (translationState.isRecording) {
-      startPulseAnimation();
-      startWaveAnimation();
+      startRecordingAnimations();
     } else {
-      stopAnimations();
+      stopRecordingAnimations();
     }
   }, [translationState.isRecording]);
+
+  useEffect(() => {
+    if (translationState.isTranslating) {
+      startTranslatingAnimations();
+    } else {
+      stopTranslatingAnimations();
+    }
+  }, [translationState.isTranslating]);
 
   const initializeService = async () => {
     try {
@@ -114,26 +129,76 @@ export const TranslationScreen: React.FC<Props> = () => {
     }
   };
 
-  const startPulseAnimation = () => {
+  const startInitialAnimations = () => {
+    Animated.parallel([
+      Animated.timing(fadeInAnimation, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideUpAnimation, {
+        toValue: 0,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      Animated.spring(scaleAnimation, {
+        toValue: 1,
+        tension: 100,
+        friction: 8,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
+  const startRecordingAnimations = () => {
+    // Smooth pulsing animation
     Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnimation, {
-          toValue: 1.2,
-          duration: 1000,
+          toValue: 1.05,
+          duration: 1200,
           useNativeDriver: true,
         }),
         Animated.timing(pulseAnimation, {
           toValue: 1,
-          duration: 1000,
+          duration: 1200,
           useNativeDriver: true,
         }),
       ])
     ).start();
-  };
 
-  const startWaveAnimation = () => {
+    // Gentle wave animation
     Animated.loop(
       Animated.timing(waveAnimation, {
+        toValue: 1,
+        duration: 2500,
+        useNativeDriver: true,
+      })
+    ).start();
+  };
+
+  const stopRecordingAnimations = () => {
+    pulseAnimation.stopAnimation();
+    waveAnimation.stopAnimation();
+    
+    Animated.parallel([
+      Animated.spring(pulseAnimation, {
+        toValue: 1,
+        tension: 120,
+        friction: 7,
+        useNativeDriver: true,
+      }),
+      Animated.timing(waveAnimation, {
+        toValue: 0,
+        duration: 400,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
+  const startTranslatingAnimations = () => {
+    Animated.loop(
+      Animated.timing(rotateAnimation, {
         toValue: 1,
         duration: 2000,
         useNativeDriver: true,
@@ -141,11 +206,13 @@ export const TranslationScreen: React.FC<Props> = () => {
     ).start();
   };
 
-  const stopAnimations = () => {
-    pulseAnimation.stopAnimation();
-    waveAnimation.stopAnimation();
-    pulseAnimation.setValue(1);
-    waveAnimation.setValue(0);
+  const stopTranslatingAnimations = () => {
+    rotateAnimation.stopAnimation();
+    Animated.timing(rotateAnimation, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
   };
 
   const handleRecordPress = async () => {
@@ -216,8 +283,8 @@ export const TranslationScreen: React.FC<Props> = () => {
       >
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.title}>English ⇄ नेपाली</Text>
-          <Text style={styles.subtitle}>Bidirectional Real-time Translation</Text>
+          <Text style={styles.title}>🇩🇪 Deutsch • 🇬🇧 English • 🇳🇵 नेपाली</Text>
+          <Text style={styles.subtitle}>Multilingual Real-time Translation</Text>
         </View>
 
         {/* Status */}
@@ -288,7 +355,7 @@ export const TranslationScreen: React.FC<Props> = () => {
                 {translationState.currentText || (
                   translationState.isRecording 
                     ? 'Listening...' 
-                    : 'Speak in English or Nepali...'
+                    : 'Speak in German, English, or Nepali...'
                 )}
               </Text>
               {translationState.isRecording && (
@@ -363,12 +430,26 @@ export const TranslationScreen: React.FC<Props> = () => {
           <Text style={styles.recordButtonText}>{getRecordButtonText()}</Text>
         </View>
 
+        {/* Translation Rules */}
+        <View style={styles.rulesContainer}>
+          <Text style={styles.rulesTitle}>Translation Directions:</Text>
+          <View style={styles.ruleItem}>
+            <Text style={styles.ruleText}>🇳🇵 नेपाली → 🇬🇧 English</Text>
+          </View>
+          <View style={styles.ruleItem}>
+            <Text style={styles.ruleText}>🇩🇪 Deutsch → 🇳🇵 नेपाली</Text>
+          </View>
+          <View style={styles.ruleItem}>
+            <Text style={styles.ruleText}>🇬🇧 English → 🇳🇵 नेपाली</Text>
+          </View>
+        </View>
+
         {/* Instructions */}
         <View style={styles.instructionsContainer}>
           <Text style={styles.instructionsText}>
             • Connect your AirPods for best experience{'\n'}
-            • Speak in English or Nepali - auto-detected{'\n'}
-            • Switch languages mid-conversation{'\n'}
+            • Speak in German, English, or Nepali - auto-detected{'\n'}
+            • Real-time chunk translation for continuous speech{'\n'}
             • Translation will play automatically
           </Text>
         </View>
@@ -563,6 +644,32 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     marginTop: 10,
     fontWeight: '500',
+  },
+  rulesContainer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: 12,
+    padding: 16,
+    marginHorizontal: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  rulesTitle: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  ruleItem: {
+    paddingVertical: 4,
+  },
+  ruleText: {
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontSize: 15,
+    fontWeight: '500',
+    textAlign: 'center',
+    lineHeight: 22,
   },
   instructionsContainer: {
     paddingHorizontal: 20,

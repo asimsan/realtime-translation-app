@@ -9,6 +9,10 @@ export class OpenAIService {
   private realtimeConnections: Map<string, WebSocket> = new Map();
 
   constructor() {
+    if (config.openai.apiKey === 'PLACEHOLDER_KEY' || config.openai.apiKey === 'sk-your-openai-api-key-here') {
+      console.warn('⚠️  OpenAI API key is not configured. Backend will start but OpenAI features will be limited.');
+    }
+    
     this.openai = new OpenAI({
       apiKey: config.openai.apiKey,
       baseURL: config.openai.baseURL,

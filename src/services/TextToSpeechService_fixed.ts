@@ -99,60 +99,37 @@ export class TextToSpeechService {
 
   private async playPCMAudio(audioBuffer: ArrayBuffer): Promise<void> {
     try {
-      // Resume AudioContext if suspended (browser policy)
       const audioContext = new AudioContext();
-      if (audioContext.state === 'suspended') {
-        await audioContext.resume();
-      }
       
       // OpenAI sends PCM16 data at 24kHz
       const sampleRate = 24000;
       const numberOfChannels = 1; // Mono
       const int16Array = new Int16Array(audioBuffer);
       
-      // Skip very small audio chunks to avoid crackling
-      if (int16Array.length < 240) { // Less than 10ms at 24kHz
-        console.log('⚠️ Skipping small audio chunk:', int16Array.length, 'samples');
-        return;
-      }
-      
       // Create AudioBuffer
       const buffer = audioContext.createBuffer(numberOfChannels, int16Array.length, sampleRate);
       const channelData = buffer.getChannelData(0);
       
-      // Convert Int16 to Float32 with improved precision
+      // Convert Int16 to Float32 (Web Audio API format)
       for (let i = 0; i < int16Array.length; i++) {
-        // Improved conversion with smoothing for better audio quality
-        channelData[i] = Math.max(-1, Math.min(1, int16Array[i] / 32767.0));
+        channelData[i] = int16Array[i] / 32768.0; // Convert to -1.0 to 1.0 range
       }
       
-      // Create gain node for volume control and smoother playback
-      const gainNode = audioContext.createGain();
-      gainNode.gain.setValueAtTime(0.8, audioContext.currentTime); // Slightly lower volume
-      
-      // Create source and connect through gain node
+      // Create source and play
       const source = audioContext.createBufferSource();
       source.buffer = buffer;
-      source.connect(gainNode);
-      gainNode.connect(audioContext.destination);
+      source.connect(audioContext.destination);
       
       this.isPlaying = true;
-      
-      // Handle playback completion
-      const onEnded = () => {
+      source.onended = () => {
         this.isPlaying = false;
         this.currentSound = null;
-        // Clean up nodes
-        gainNode.disconnect();
-        source.disconnect();
       };
-      
-      source.onended = onEnded;
       
       this.currentSound = source;
       source.start();
       
-      console.log(`🔊 Playing PCM audio: ${audioBuffer.byteLength} bytes, ${int16Array.length} samples, ${(int16Array.length / sampleRate * 1000).toFixed(1)}ms`);
+      console.log(`🔊 Playing PCM audio: ${audioBuffer.byteLength} bytes, ${int16Array.length} samples`);
       
     } catch (error) {
       console.error('Error playing PCM audio:', error);

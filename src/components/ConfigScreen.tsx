@@ -7,6 +7,8 @@ import {
   SafeAreaView,
   Alert,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -232,10 +234,10 @@ export const ConfigScreen: React.FC<Props> = ({ onConfigComplete }) => {
           <View style={styles.instructionsContainer}>
             <Text style={styles.instructionsTitle}>Backend Service Info:</Text>
             <Text style={styles.instructionsText}>
-              • Backend handles all OpenAI API communication{'\n'}
-              • No API keys needed on your device{'\n'}
-              • Secure server-side processing{'\n'}
-              • Automatic rate limiting and error handling
+              Backend handles all OpenAI API communication{'\n'}
+              No API keys needed on your device{'\n'}
+              Secure server-side processing{'\n'}
+              Automatic rate limiting and error handling
             </Text>
             
             <View style={styles.warningContainer}>

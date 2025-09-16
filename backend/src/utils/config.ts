@@ -7,6 +7,10 @@ dotenv.config();
 const getEnvVar = (name: string, defaultValue?: string): string => {
   const value = process.env[name];
   if (!value && !defaultValue) {
+    if (name === 'OPENAI_API_KEY') {
+      console.warn(`⚠️  Warning: ${name} is not set. Backend will start but OpenAI features will not work.`);
+      return 'PLACEHOLDER_KEY';
+    }
     throw new Error(`Environment variable ${name} is required`);
   }
   return value || defaultValue!;
