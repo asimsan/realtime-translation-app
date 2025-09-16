@@ -5,26 +5,26 @@ import { ConfigScreen } from './src/components/ConfigScreen';
 import { TranslationScreen } from './src/components/TranslationScreen';
 
 export default function App() {
-  const [apiKey, setApiKey] = useState<string | null>(null);
+  const [isConfigured, setIsConfigured] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    loadSavedApiKey();
+    loadSavedConfig();
   }, []);
 
-  const loadSavedApiKey = async () => {
+  const loadSavedConfig = async () => {
     try {
-      const savedApiKey = await AsyncStorage.getItem('openai_api_key');
-      setApiKey(savedApiKey);
+      const configured = await AsyncStorage.getItem('backend_configured');
+      setIsConfigured(configured === 'true');
     } catch (error) {
-      console.error('Error loading API key:', error);
+      console.error('Error loading config:', error);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleConfigComplete = (newApiKey: string) => {
-    setApiKey(newApiKey);
+  const handleConfigComplete = () => {
+    setIsConfigured(true);
   };
 
   if (isLoading) {
@@ -34,8 +34,8 @@ export default function App() {
   return (
     <>
       <StatusBar style="light" />
-      {apiKey ? (
-        <TranslationScreen apiKey={apiKey} />
+      {isConfigured ? (
+        <TranslationScreen />
       ) : (
         <ConfigScreen onConfigComplete={handleConfigComplete} />
       )}

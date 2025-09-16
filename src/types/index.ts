@@ -35,7 +35,8 @@ export interface LiveKitOptions {
 }
 
 export interface OpenAIConfig {
-  apiKey: string;
+  apiKey?: string; // Optional since backend handles this now
   model: string;
   voice: string;
+  backendUrl?: string; // URL of our backend service
 }

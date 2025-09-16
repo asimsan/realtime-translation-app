@@ -5,7 +5,7 @@
 [![OpenAI](https://img.shields.io/badge/OpenAI-Realtime%20API-green.svg)](https://platform.openai.com/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-~5.9.2-blue.svg)](https://www.typescriptlang.org/)
 
-A real-time speech translation mobile app that enables **bidirectional English ⇄ Nepali translation** through AirPods. The app uses **OpenAI's GPT Realtime API** for speech recognition and translation, optimized for low-latency, hands-free operation with echo cancellation.
+A real-time speech translation mobile app that enables **bidirectional English ⇄ Nepali translation** through AirPods. The app uses **OpenAI's GPT Realtime API** via a secure backend service for speech recognition and translation, optimized for low-latency, hands-free operation with echo cancellation.
 
 ## 📱 Demo
 
@@ -29,35 +29,55 @@ A real-time speech translation mobile app that enables **bidirectional English �
 ## 🏗️ Architecture
 
 ```
-[English Speech] → [AirPods Mic] → [App Audio Capture]
-                                         ↓
-[OpenAI Realtime API] ← [WebSocket Stream] ← [Audio Processing]
-    ↓
-[ASR: English audio → text] → [Translation: English → Nepali] → [TTS: Nepali text → audio]
-    ↓
-[Real-time Audio Stream] → [AirPods Playback] → [Nepali Voice Output]
+[Mobile App] → [Backend Service] → [OpenAI Realtime API]
+      ↓              ↓                       ↓
+[AirPods Audio] → [Secure Proxy] → [Speech Recognition & Translation]
+      ↓              ↓                       ↓
+[User Interface] ← [Rate Limiting] ← [Real-time Audio Response]
+                   [Authentication]
+                   [Error Handling]
 ```
+
+**Security Benefits:**
+- 🔒 API keys stored securely on backend
+- 🛡️ Rate limiting and request validation
+- 🚫 No sensitive data on client devices
+- 📊 Centralized logging and monitoring
 
 ## 🛠️ Tech Stack
 
-- **Frontend:** React Native (Expo)
-- **Speech Recognition:** OpenAI Whisper Realtime
-- **Translation:** OpenAI GPT-4 Realtime
-- **Text-to-Speech:** Expo Speech + OpenAI TTS
+### Frontend
+- **Framework:** React Native (Expo)
+- **Language:** TypeScript
 - **Audio Processing:** Expo AV
-- **Real-time Streaming:** WebSocket + OpenAI Realtime API
 - **State Management:** React Hooks
 - **Storage:** AsyncStorage
+
+### Backend
+- **Runtime:** Node.js + Express.js
+- **Language:** TypeScript
+- **Authentication:** Session-based + Rate limiting
+- **API Integration:** OpenAI Realtime API
+- **Security:** Helmet, CORS, Input validation
+
+### Services
+- **Speech Recognition:** OpenAI Whisper Realtime
+- **Translation:** OpenAI GPT-4 Realtime
+- **Text-to-Speech:** OpenAI TTS
+- **Real-time Streaming:** WebSocket + OpenAI Realtime API
 
 ## 📋 Prerequisites
 
 Before you begin, ensure you have:
 
-1. **Node.js** (v16 or higher)
+1. **Node.js** (v18 or higher)
 2. **Expo CLI** (`npm install -g @expo/cli`)
-3. **OpenAI API Key** with Realtime API access
-4. **iOS device or simulator** (recommended for AirPods)
-5. **AirPods or compatible Bluetooth headphones**
+3. **iOS device or simulator** (recommended for AirPods)
+4. **AirPods or compatible Bluetooth headphones**
+
+### For Backend Setup (Admin Only)
+- **OpenAI API Key** with Realtime API access
+- **Server/Hosting** for backend deployment
 
 ## 🚀 Quick Start
 
@@ -69,13 +89,18 @@ cd realtime-translation-app
 npm install
 ```
 
-### 2. Get OpenAI API Key
+### 2. Set Up Backend (First Time Only)
 
-1. Visit [platform.openai.com](https://platform.openai.com)
-2. Sign in to your account
-3. Navigate to the API section
-4. Create a new API key with Realtime API access
-5. Copy the key (starts with `sk-`)
+See [BACKEND_DEPLOYMENT.md](BACKEND_DEPLOYMENT.md) for complete backend setup instructions.
+
+**Quick local setup:**
+```bash
+cd backend
+cp env.example .env
+# Edit .env with your OpenAI API key
+npm install
+npm run dev
+```
 
 ### 3. Run the App
 
@@ -95,10 +120,10 @@ npm run web
 
 ### 4. Configure the App
 
-1. When you first open the app, you'll see a configuration screen
-2. Enter your OpenAI API key
-3. The app will validate the key and save it locally
-4. You're ready to start translating!
+1. When you first open the app, you'll see a backend connection screen
+2. The app will automatically check the backend service status
+3. Ensure your backend is running on `http://localhost:3001`
+4. Once connected, you're ready to start translating!
 
 ## 📱 How to Use
 

@@ -13,16 +13,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { TranslationService } from '../services/TranslationService';
 import { TranslationState, OpenAIConfig } from '../types';
-import { validateOpenAIApiKey, testRealtimeConnection } from '../utils/apiKeyValidator';
-import { diagnoseAPIKey, printDiagnostics } from '../utils/apiKeyDebugger';
+import { validateBackendService, testRealtimeConnection, getBackendUrl } from '../utils/backendValidator';
 
 const { width, height } = Dimensions.get('window');
 
-interface Props {
-  apiKey: string;
-}
+interface Props {}
 
-export const TranslationScreen: React.FC<Props> = ({ apiKey }) => {
+export const TranslationScreen: React.FC<Props> = () => {
   const [translationState, setTranslationState] = useState<TranslationState>({
     isRecording: false,
     isTranslating: false,
@@ -56,34 +53,21 @@ export const TranslationScreen: React.FC<Props> = ({ apiKey }) => {
     try {
       console.log('🚀 Initializing translation service...');
       
-      // Step 1: Comprehensive API key diagnosis
-      console.log('🔍 Step 1: Running comprehensive API key diagnostics...');
-      const diagnostics = await diagnoseAPIKey(apiKey);
-      printDiagnostics(diagnostics);
+      const backendUrl = getBackendUrl();
       
-      if (!diagnostics.isValidFormat) {
-        throw new Error(`Invalid API key format: ${diagnostics.errors.join(', ')}`);
+      // Step 1: Validate backend service
+      console.log('🔍 Step 1: Validating backend service...');
+      const backendStatus = await validateBackendService(backendUrl);
+      
+      if (!backendStatus.backendReachable) {
+        throw new Error('Backend service is not reachable. Please ensure the backend server is running.');
       }
       
-      if (!diagnostics.hasBasicAccess) {
-        const errorMsg = diagnostics.errors.length > 0 
-          ? diagnostics.errors.join(', ')
-          : 'API key lacks basic access';
-        const recommendations = diagnostics.recommendations.length > 0
-          ? `\n\nRecommendations:\n${diagnostics.recommendations.map(r => `• ${r}`).join('\n')}`
-          : '';
-        throw new Error(`${errorMsg}${recommendations}`);
-      }
-      
-      if (!diagnostics.hasRealtimeAccess) {
-        const realtimeError = 'Realtime API access not available for this key';
-        const recommendations = diagnostics.recommendations.length > 0
-          ? `\n\nRecommendations:\n${diagnostics.recommendations.map(r => `• ${r}`).join('\n')}`
-          : '';
-        console.warn('⚠️ Realtime access not detected');
+      if (!backendStatus.isHealthy) {
+        console.warn('⚠️ Backend service has issues:', backendStatus.error);
         Alert.alert(
-          'Realtime Access Required', 
-          `${realtimeError}${recommendations}`,
+          'Backend Issues', 
+          `Backend service has issues: ${backendStatus.error}. You can continue but some features may not work.`,
           [
             { text: 'Continue Anyway', style: 'default' },
             { text: 'Cancel', style: 'cancel', onPress: () => { return; } }
@@ -91,20 +75,33 @@ export const TranslationScreen: React.FC<Props> = ({ apiKey }) => {
         );
       }
       
-      // Step 2: Test WebSocket connection
-      console.log('🔍 Step 2: Testing Realtime WebSocket connection...');
-      const connectionTest = await testRealtimeConnection(apiKey);
-      
-      if (!connectionTest.canConnect) {
-        throw new Error(`Cannot connect to Realtime API: ${connectionTest.error}`);
+      if (!backendStatus.hasRealtimeAccess) {
+        console.warn('⚠️ Realtime access not available');
+        Alert.alert(
+          'Limited Features', 
+          'Realtime API access is not available. You can use text translation but not real-time voice features.',
+          [
+            { text: 'Continue', style: 'default' },
+            { text: 'Cancel', style: 'cancel', onPress: () => { return; } }
+          ]
+        );
       }
       
-      console.log('✅ Pre-flight checks passed, initializing service...');
+      // Step 2: Test WebSocket connection
+      console.log('🔍 Step 2: Testing Realtime WebSocket connection...');
+      const connectionTest = await testRealtimeConnection(backendUrl);
+      
+      if (!connectionTest.canConnect) {
+        console.warn('⚠️ Realtime connection test failed:', connectionTest.error);
+        // Don't throw here - allow fallback to text translation
+      }
+      
+      console.log('✅ Backend validation passed, initializing service...');
       
       const config: OpenAIConfig = {
-        apiKey,
         model: 'gpt-realtime',
         voice: 'alloy',
+        backendUrl,
       };
 
       translationService.current = new TranslationService(config, setTranslationState);

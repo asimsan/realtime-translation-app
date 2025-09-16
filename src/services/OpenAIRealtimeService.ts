@@ -1,8 +1,9 @@
 import { OpenAIConfig, RealtimeMessage } from '../types';
+import { BackendAPIService } from './BackendAPIService';
 
 export class OpenAIRealtimeService {
   private ws: WebSocket | null = null;
-  private apiKey: string;
+  private backendAPI: BackendAPIService;
   private onMessage: (message: RealtimeMessage) => void;
   private onError: (error: Error) => void;
 
@@ -11,33 +12,24 @@ export class OpenAIRealtimeService {
     onMessage: (message: RealtimeMessage) => void,
     onError: (error: Error) => void
   ) {
-    this.apiKey = config.apiKey;
+    this.backendAPI = new BackendAPIService(config.backendUrl);
     this.onMessage = onMessage;
     this.onError = onError;
   }
 
   async connect(): Promise<void> {
     try {
-      console.log('🔗 Attempting to connect to OpenAI Realtime API...');
-      console.log('🔑 API Key (first 10 chars):', this.apiKey.substring(0, 10) + '...');
+      console.log('🔗 Connecting to Realtime API via backend...');
       
-      // Step 1: Get ephemeral client secret for browser WebSocket
-      console.log('🔑 Getting ephemeral client secret for browser authentication...');
-      const clientSecret = await this.getEphemeralKey();
+      // Step 1: Get ephemeral token from our backend
+      console.log('🔑 Getting ephemeral token from backend...');
+      const tokenData = await this.backendAPI.getRealtimeToken();
       
       // Step 2: Connect using ephemeral key via WebSocket subprotocols
-      const url = `wss://api.openai.com/v1/realtime?model=gpt-realtime`;
-      console.log('🌐 WebSocket URL:', url);
+      console.log('🌐 WebSocket URL:', tokenData.websocketUrl);
       console.log('🔑 Using ephemeral client secret for authentication');
 
-      // Use subprotocols for auth in browser environments
-      console.log('🌐 Connecting with ephemeral key via subprotocols...');
-      const protocols = [
-        'realtime',
-        `openai-insecure-api-key.${clientSecret}`,
-      ];
-
-      this.ws = new WebSocket(url, protocols as any);
+      this.ws = new WebSocket(tokenData.websocketUrl, tokenData.protocols as any);
 
       this.ws.onopen = () => {
         console.log('✅ Connected to OpenAI Realtime API');
@@ -94,85 +86,7 @@ export class OpenAIRealtimeService {
     }
   }
 
-  private async getEphemeralKey(): Promise<string> {
-    try {
-      console.log('📡 Requesting ephemeral client secret from OpenAI...');
-      
-      const sessionConfig = {
-        session: {
-          type: 'realtime',
-          model: 'gpt-realtime',
-          audio: {
-            input: {
-              format: {
-                type: 'audio/pcm',
-                rate: 24000
-              },
-              turn_detection: {
-                type: 'server_vad'
-              }
-            },
-            output: {
-              voice: 'alloy',
-              format: {
-                type: 'audio/pcm',
-                rate: 24000
-              }
-            }
-          },
-          instructions: `# Translation Agent
-
-You are an expert real-time translator specializing in English and Nepali languages. You have deep cultural understanding of both languages and can capture nuances, emotions, and context.
-
-## Core Task
-Automatically detect whether the user is speaking in English or Nepali, then provide an accurate, natural translation to the other language. Maintain the original speaker's tone, emotion, and intent.
-
-## Translation Rules
-- If input is English: translate to Nepali (नेपाली)
-- If input is Nepali: translate to English
-- For mixed-language input: translate each part appropriately
-- Preserve emotional tone and cultural context
-- Maintain conversational flow across multiple exchanges
-
-## Communication Style
-- Natural and conversational
-- Match the original speaker's formality level (casual vs formal)
-- Preserve enthusiasm and energy levels
-- Use appropriate cultural references for the target language
-- Include natural speech patterns when appropriate
-
-## Special Instructions
-- If uncertain about cultural references, provide contextually appropriate equivalents
-- For names and proper nouns, repeat them clearly for confirmation
-- Maintain conversation context across multiple turns
-- Respond promptly to maintain natural conversation flow`
-        }
-      };
-
-      const response = await fetch('https://api.openai.com/v1/realtime/client_secrets', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(sessionConfig)
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ Failed to get ephemeral key:', response.status, errorText);
-        throw new Error(`Failed to get ephemeral key: ${response.status} ${errorText}`);
-      }
-
-      const data = await response.json();
-      console.log('✅ Ephemeral client secret obtained');
-      return data.value;
-
-    } catch (error) {
-      console.error('❌ Error getting ephemeral client secret:', error);
-      throw error;
-    }
-  }
+  // Removed getEphemeralKey method - now handled by backend
 
   private initializeSession(): void {
     if (!this.ws) {

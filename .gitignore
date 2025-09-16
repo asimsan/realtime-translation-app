@@ -43,6 +43,10 @@ config.json
 .env.production
 .env.development
 
+# Backend environment files
+backend/.env
+backend/dist/
+
 # typescript
 *.tsbuildinfo
 

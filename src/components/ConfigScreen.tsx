@@ -2,86 +2,133 @@ import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  TextInput,
   TouchableOpacity,
   StyleSheet,
   SafeAreaView,
   Alert,
-  KeyboardAvoidingView,
-  Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { validateOpenAIApiKey } from '../utils/apiKeyValidator';
+import { validateBackendService, getBackendUrl } from '../utils/backendValidator';
 
 interface Props {
-  onConfigComplete: (apiKey: string) => void;
+  onConfigComplete: () => void;
 }
 
 export const ConfigScreen: React.FC<Props> = ({ onConfigComplete }) => {
-  const [apiKey, setApiKey] = useState('');
+  const [backendStatus, setBackendStatus] = useState({
+    isHealthy: false,
+    hasRealtimeAccess: false,
+    backendReachable: false,
+    error: '',
+  });
   const [isLoading, setIsLoading] = useState(false);
+  const [backendUrl] = useState(getBackendUrl());
 
   useEffect(() => {
-    loadSavedConfig();
+    checkBackendStatus();
   }, []);
 
-  const loadSavedConfig = async () => {
-    try {
-      const savedApiKey = await AsyncStorage.getItem('openai_api_key');
-      if (savedApiKey) {
-        setApiKey(savedApiKey);
-      }
-    } catch (error) {
-      console.error('Error loading saved config:', error);
-    }
-  };
-
-  const validateAndSave = async () => {
-    if (!apiKey.trim()) {
-      Alert.alert('Error', 'Please enter your OpenAI API key');
-      return;
-    }
-
-    if (!apiKey.startsWith('sk-')) {
-      Alert.alert('Error', 'Invalid API key format. OpenAI API keys start with "sk-"');
-      return;
-    }
-
+  const checkBackendStatus = async () => {
     setIsLoading(true);
-
     try {
-      // Validate using ephemeral client secret endpoint
-      const result = await validateOpenAIApiKey(apiKey.trim());
-      if (!result.isValid) {
-        Alert.alert('Error', `Invalid API key. ${result.error || ''}`.trim());
-        return;
-      }
-
-      if (!result.hasRealtimeAccess) {
-        Alert.alert('Warning', 'API key validated, but Realtime access not detected. You can proceed, but realtime features may not work until access is enabled.');
-      }
-
-      // Save the API key
-      await AsyncStorage.setItem('openai_api_key', apiKey.trim());
-      onConfigComplete(apiKey.trim());
+      const status = await validateBackendService(backendUrl);
+      setBackendStatus(status);
     } catch (error) {
-      Alert.alert('Error', 'Failed to validate API key. Please check your internet connection.');
-      console.error('API key validation error:', error);
+      console.error('Error checking backend status:', error);
+      setBackendStatus({
+        isHealthy: false,
+        hasRealtimeAccess: false,
+        backendReachable: false,
+        error: 'Failed to check backend status',
+      });
     } finally {
       setIsLoading(false);
     }
   };
 
+  const continueWithBackend = async () => {
+    if (!backendStatus.backendReachable) {
+      Alert.alert(
+        'Backend Unavailable', 
+        'The translation backend service is not reachable. Please ensure the backend server is running and try again.',
+        [
+          { text: 'Retry', onPress: checkBackendStatus },
+          { text: 'Cancel', style: 'cancel' }
+        ]
+      );
+      return;
+    }
+
+    if (!backendStatus.isHealthy) {
+      Alert.alert(
+        'Backend Issues', 
+        `The backend service has issues: ${backendStatus.error || 'Unknown error'}. You can continue but some features may not work.`,
+        [
+          { text: 'Continue Anyway', onPress: () => onConfigComplete() },
+          { text: 'Retry', onPress: checkBackendStatus },
+          { text: 'Cancel', style: 'cancel' }
+        ]
+      );
+      return;
+    }
+
+    if (!backendStatus.hasRealtimeAccess) {
+      Alert.alert(
+        'Limited Features', 
+        'Backend is healthy but Realtime API access is not available. You can use text translation but not real-time voice features.',
+        [
+          { text: 'Continue', onPress: () => onConfigComplete() },
+          { text: 'Cancel', style: 'cancel' }
+        ]
+      );
+      return;
+    }
+
+    // All good - proceed
+    try {
+      await AsyncStorage.setItem('backend_configured', 'true');
+      onConfigComplete();
+    } catch (error) {
+      console.error('Error saving config:', error);
+      onConfigComplete(); // Continue anyway
+    }
+  };
+
   const clearSavedData = async () => {
     try {
-      await AsyncStorage.removeItem('openai_api_key');
-      setApiKey('');
-      Alert.alert('Success', 'Saved data cleared');
+      await AsyncStorage.removeItem('backend_configured');
+      Alert.alert('Success', 'Configuration cleared');
+      checkBackendStatus(); // Refresh status
     } catch (error) {
       console.error('Error clearing saved data:', error);
     }
+  };
+
+  const getStatusIcon = () => {
+    if (isLoading) return 'refresh';
+    if (!backendStatus.backendReachable) return 'cloud-offline';
+    if (!backendStatus.isHealthy) return 'warning';
+    if (!backendStatus.hasRealtimeAccess) return 'checkmark-circle-outline';
+    return 'checkmark-circle';
+  };
+
+  const getStatusColor = () => {
+    if (isLoading) return '#ffffff';
+    if (!backendStatus.backendReachable) return '#ff6b6b';
+    if (!backendStatus.isHealthy) return '#ffa500';
+    if (!backendStatus.hasRealtimeAccess) return '#ffcc00';
+    return '#4caf50';
+  };
+
+  const getStatusText = () => {
+    if (isLoading) return 'Checking backend status...';
+    if (!backendStatus.backendReachable) return 'Backend service unavailable';
+    if (!backendStatus.isHealthy) return 'Backend has issues';
+    if (!backendStatus.hasRealtimeAccess) return 'Limited features available';
+    return 'All systems ready';
   };
 
   return (
@@ -96,62 +143,105 @@ export const ConfigScreen: React.FC<Props> = ({ onConfigComplete }) => {
         >
           {/* Header */}
           <View style={styles.header}>
-            <Ionicons name="settings" size={48} color="#ffffff" />
-            <Text style={styles.title}>Setup Required</Text>
-            <Text style={styles.subtitle}>Configure your OpenAI API key to get started</Text>
+            {isLoading ? (
+              <ActivityIndicator size="large" color="#ffffff" />
+            ) : (
+              <Ionicons name={getStatusIcon()} size={48} color={getStatusColor()} />
+            )}
+            <Text style={styles.title}>Backend Connection</Text>
+            <Text style={styles.subtitle}>Checking translation service status</Text>
           </View>
 
-          {/* Configuration Form */}
+          {/* Status Display */}
           <View style={styles.formContainer}>
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>OpenAI API Key</Text>
-              <TextInput
-                style={styles.input}
-                value={apiKey}
-                onChangeText={setApiKey}
-                placeholder="sk-..."
-                placeholderTextColor="rgba(255, 255, 255, 0.5)"
-                secureTextEntry
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
+            <View style={styles.statusContainer}>
+              <Text style={styles.label}>Service Status</Text>
+              <View style={styles.statusRow}>
+                <Ionicons name={getStatusIcon()} size={24} color={getStatusColor()} />
+                <Text style={[styles.statusText, { color: getStatusColor() }]}>
+                  {getStatusText()}
+                </Text>
+              </View>
+              
+              {backendStatus.error && (
+                <Text style={styles.errorText}>{backendStatus.error}</Text>
+              )}
+              
+              <View style={styles.detailsContainer}>
+                <Text style={styles.detailsTitle}>Backend URL:</Text>
+                <Text style={styles.detailsText}>{backendUrl}</Text>
+                
+                <View style={styles.checklistContainer}>
+                  <View style={styles.checklistItem}>
+                    <Ionicons 
+                      name={backendStatus.backendReachable ? "checkmark-circle" : "close-circle"} 
+                      size={16} 
+                      color={backendStatus.backendReachable ? "#4caf50" : "#ff6b6b"} 
+                    />
+                    <Text style={styles.checklistText}>Backend Reachable</Text>
+                  </View>
+                  
+                  <View style={styles.checklistItem}>
+                    <Ionicons 
+                      name={backendStatus.isHealthy ? "checkmark-circle" : "close-circle"} 
+                      size={16} 
+                      color={backendStatus.isHealthy ? "#4caf50" : "#ff6b6b"} 
+                    />
+                    <Text style={styles.checklistText}>OpenAI API Valid</Text>
+                  </View>
+                  
+                  <View style={styles.checklistItem}>
+                    <Ionicons 
+                      name={backendStatus.hasRealtimeAccess ? "checkmark-circle" : "close-circle"} 
+                      size={16} 
+                      color={backendStatus.hasRealtimeAccess ? "#4caf50" : "#ff6b6b"} 
+                    />
+                    <Text style={styles.checklistText}>Realtime API Access</Text>
+                  </View>
+                </View>
+              </View>
             </View>
 
             <TouchableOpacity
               style={[styles.button, styles.primaryButton]}
-              onPress={validateAndSave}
-              disabled={isLoading || !apiKey.trim()}
+              onPress={continueWithBackend}
+              disabled={isLoading || !backendStatus.backendReachable}
             >
               <Text style={styles.buttonText}>
-                {isLoading ? 'Validating...' : 'Save & Continue'}
+                {isLoading ? 'Checking...' : 'Continue'}
               </Text>
             </TouchableOpacity>
 
-            {apiKey && (
-              <TouchableOpacity
-                style={[styles.button, styles.secondaryButton]}
-                onPress={clearSavedData}
-              >
-                <Text style={styles.secondaryButtonText}>Clear Saved Data</Text>
-              </TouchableOpacity>
-            )}
+            <TouchableOpacity
+              style={[styles.button, styles.secondaryButton]}
+              onPress={checkBackendStatus}
+              disabled={isLoading}
+            >
+              <Text style={styles.secondaryButtonText}>Retry Connection</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.button, styles.secondaryButton]}
+              onPress={clearSavedData}
+            >
+              <Text style={styles.secondaryButtonText}>Clear Config</Text>
+            </TouchableOpacity>
           </View>
 
           {/* Instructions */}
           <View style={styles.instructionsContainer}>
-            <Text style={styles.instructionsTitle}>How to get your API key:</Text>
+            <Text style={styles.instructionsTitle}>Backend Service Info:</Text>
             <Text style={styles.instructionsText}>
-              1. Visit platform.openai.com{'\n'}
-              2. Sign in to your account{'\n'}
-              3. Go to API section{'\n'}
-              4. Create a new API key{'\n'}
-              5. Copy and paste it here
+              • Backend handles all OpenAI API communication{'\n'}
+              • No API keys needed on your device{'\n'}
+              • Secure server-side processing{'\n'}
+              • Automatic rate limiting and error handling
             </Text>
             
             <View style={styles.warningContainer}>
-              <Ionicons name="warning" size={20} color="#ffcc00" />
+              <Ionicons name="shield-checkmark" size={20} color="#4caf50" />
               <Text style={styles.warningText}>
-                Keep your API key secure. It will be stored locally on your device.
+                Your API keys are secure on the backend server. No sensitive data is stored on your device.
               </Text>
             </View>
           </View>
@@ -264,6 +354,57 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#ffffff',
     opacity: 0.8,
+  },
+  statusContainer: {
+    marginBottom: 20,
+  },
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  statusText: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  errorText: {
+    fontSize: 12,
+    color: '#ff6b6b',
+    marginTop: 5,
+    fontStyle: 'italic',
+  },
+  detailsContainer: {
+    marginTop: 15,
+    padding: 15,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 8,
+  },
+  detailsTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#ffffff',
+    marginBottom: 5,
+  },
+  detailsText: {
+    fontSize: 12,
+    color: '#ffffff',
+    opacity: 0.8,
+    fontFamily: 'monospace',
+    marginBottom: 15,
+  },
+  checklistContainer: {
+    gap: 8,
+  },
+  checklistItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  checklistText: {
+    fontSize: 14,
+    color: '#ffffff',
+    marginLeft: 8,
+    opacity: 0.9,
   },
   instructionsContainer: {
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
