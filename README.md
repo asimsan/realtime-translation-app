@@ -259,17 +259,7 @@ Contributions are welcome! Please read the contributing guidelines and:
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## 🙏 Acknowledgments
-
-- **OpenAI** for the Realtime API and GPT-4 models
-- **Expo** for the excellent React Native framework
-- **React Native community** for audio and speech libraries
-
-## 📞 Support
-
-For support and questions:
+This project is licensed under the MIT License.
 
 1. Check the troubleshooting section above
 2. Review the OpenAI API documentation
