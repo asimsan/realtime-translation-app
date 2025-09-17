@@ -101,7 +101,7 @@ export class OpenAIRealtimeService {
         type: 'realtime',
         model: 'gpt-realtime-2025-08-25',
         output_modalities: ['audio'],
-        instructions: `You are a word-for-word TRANSLATION MACHINE. You NEVER engage in conversation.
+        instructions: `You are a TRANSLATION MACHINE. Translate complete phrases accurately.
 
 ABSOLUTE RULES:
 1. NEPALI input → Translate to ENGLISH exactly
@@ -117,6 +117,7 @@ BEHAVIOR:
 - NEVER ask questions back
 - NEVER engage with the content
 - Act like Google Translate - just convert words
+- Wait for complete phrases for accurate translation
 
 EXAMPLES:
 Input: "I would like to say you something" → Output: "म तपाईंलाई केहि भन्न चाहन्छु"
@@ -158,7 +159,7 @@ You are a machine. Not a person. Not a helper. Just a translator.`,
               type: 'server_vad',
               threshold: 0.5,
               prefix_padding_ms: 300,
-              silence_duration_ms: 800,
+              silence_duration_ms: 400,
               create_response: true,
               interrupt_response: true
             }
@@ -168,7 +169,7 @@ You are a machine. Not a person. Not a helper. Just a translator.`,
               type: 'audio/pcm',
               rate: 24000
             },
-            voice: 'alloy',
+            voice: 'ash',
             speed: 1.0
           }
         }
@@ -213,6 +214,7 @@ You are a machine. Not a person. Not a helper. Just a translator.`,
   commitAudioBuffer(): void {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
 
+    console.log('🚀 Force committing audio buffer for real-time translation');
     const message = {
       type: 'input_audio_buffer.commit'
     };

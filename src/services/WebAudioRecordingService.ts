@@ -15,11 +15,36 @@ export class WebAudioRecordingService {
 
   async requestPermissions(): Promise<AudioPermissions> {
     try {
-      console.log('🎤 Requesting microphone permissions with echo cancellation...');
+      console.log('🎤 Requesting microphone permissions for live translation...');
       
-      // Request microphone with echo cancellation and noise suppression
+      // Get available audio devices
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const audioInputs = devices.filter(device => device.kind === 'audioinput');
+      
+      console.log('🔍 Available audio input devices:');
+      audioInputs.forEach((device, index) => {
+        console.log(`  ${index}: ${device.label || 'Unknown Device'} (${device.deviceId})`);
+      });
+
+      // Try to find MacBook's built-in microphone
+      const macbookMic = audioInputs.find(device => 
+        device.label.toLowerCase().includes('built-in') ||
+        device.label.toLowerCase().includes('macbook') ||
+        device.label.toLowerCase().includes('internal')
+      );
+
+      const preferredDeviceId = macbookMic?.deviceId;
+      
+      if (preferredDeviceId) {
+        console.log(`✅ Using MacBook built-in microphone: ${macbookMic?.label}`);
+      } else {
+        console.log('⚠️  MacBook microphone not found, using default');
+      }
+      
+      // Request microphone with device-specific configuration
       const stream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
+          deviceId: preferredDeviceId ? { exact: preferredDeviceId } : undefined,
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: true,

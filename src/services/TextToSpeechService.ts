@@ -5,9 +5,12 @@ import { Platform } from 'react-native';
 export class TextToSpeechService {
   private currentSound: any = null;
   private isPlaying: boolean = false;
+  private airpodsDevice: MediaDeviceInfo | null = null;
+  private audioContext: AudioContext | null = null;
 
   constructor() {
     this.setupAudioSession();
+    this.findAirPods();
   }
 
   private async setupAudioSession(): Promise<void> {
@@ -24,6 +27,36 @@ export class TextToSpeechService {
       });
     } catch (error) {
       console.error('Error setting up audio session:', error);
+    }
+  }
+
+  private async findAirPods(): Promise<void> {
+    if (Platform.OS !== 'web') return;
+
+    try {
+      console.log('🔍 Searching for AirPods...');
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const audioOutputs = devices.filter(device => device.kind === 'audiooutput');
+      
+      console.log('🔊 Available audio output devices:');
+      audioOutputs.forEach((device, index) => {
+        console.log(`  ${index}: ${device.label || 'Unknown Device'} (${device.deviceId})`);
+      });
+
+      // Try to find AirPods
+      this.airpodsDevice = audioOutputs.find(device => 
+        device.label.toLowerCase().includes('airpods') ||
+        device.label.toLowerCase().includes('wireless') ||
+        device.label.toLowerCase().includes('bluetooth')
+      ) || null;
+
+      if (this.airpodsDevice) {
+        console.log(`✅ Found AirPods: ${this.airpodsDevice.label}`);
+      } else {
+        console.log('⚠️  AirPods not found, using default audio output');
+      }
+    } catch (error) {
+      console.error('Error finding AirPods:', error);
     }
   }
 
@@ -134,6 +167,17 @@ export class TextToSpeechService {
       const source = audioContext.createBufferSource();
       source.buffer = buffer;
       source.connect(gainNode);
+      
+      // Route audio specifically to AirPods if available
+      if (this.airpodsDevice?.deviceId && (audioContext as any).setSinkId) {
+        try {
+          await (audioContext as any).setSinkId(this.airpodsDevice.deviceId);
+          console.log(`🎧 Audio routed to AirPods: ${this.airpodsDevice.label}`);
+        } catch (error) {
+          console.warn('⚠️  Could not route to AirPods, using default output:', error);
+        }
+      }
+      
       gainNode.connect(audioContext.destination);
       
       this.isPlaying = true;

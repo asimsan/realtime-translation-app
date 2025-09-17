@@ -56,6 +56,13 @@ export class TranslationService {
 
   async initialize(): Promise<void> {
     try {
+      console.log('🎧 LIVE TRANSLATION SETUP');
+      console.log('📋 Required setup for optimal experience:');
+      console.log('  1. Connect your AirPods to your Mac');
+      console.log('  2. Set system audio output to AirPods');
+      console.log('  3. Keep MacBook microphone as input');
+      console.log('  4. This creates isolated input/output channels');
+      
       // Initialize audio session manager first
       await this.audioSessionManager.initialize();
       
@@ -73,6 +80,10 @@ export class TranslationService {
       await this.openaiService.connect();
       
       this.updateState({ error: null });
+      
+      console.log('✅ Live translation system initialized');
+      console.log('🎤 Source: MacBook microphone');
+      console.log('🎧 Output: AirPods (translated audio only)');
     } catch (error) {
       this.handleError(error as Error);
     }
@@ -137,6 +148,7 @@ export class TranslationService {
         clearTimeout(this.responseTimeout);
         this.responseTimeout = null;
       }
+
 
       console.log('✅ Translation stopped and reset to idle state');
 
@@ -463,6 +475,7 @@ export class TranslationService {
       clearTimeout(this.responseTimeout);
       this.responseTimeout = null;
     }
+
     
     // Reset all states
     this.audioChunks = [];
